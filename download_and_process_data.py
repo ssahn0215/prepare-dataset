@@ -11,7 +11,6 @@ import progressbar
 from subprocess import call
 from tqdm import tqdm
 from os.path import join as pjoin
-
 def create_dirs(dirs):
     """
     dirs - a list of directories to create if these directories are not found
@@ -46,13 +45,22 @@ def download_data(dataset, raw_dir):
     create_dirs([raw_dir])
 
     if dataset == "CUB200":
-        urls = ["http://www.vision.caltech.edu/visipedia-data/CUB-200-2011/CUB_200_2011.tgz"]
+        urls = [
+            "http://www.vision.caltech.edu/visipedia-data/CUB-200-2011/CUB_200_2011.tgz"
+            ]
     elif dataset == "MIT67":
-        urls = ["http://groups.csail.mit.edu/vision/LabelMe/NewImages/indoorCVPR_09.tar",
-                "http://web.mit.edu/torralba/www/TrainImages.txt",
-                "http://web.mit.edu/torralba/www/TestImages.txt"]
+        urls = [
+            "http://groups.csail.mit.edu/vision/LabelMe/NewImages/indoorCVPR_09.tar",
+            "http://web.mit.edu/torralba/www/TrainImages.txt",
+            "http://web.mit.edu/torralba/www/TestImages.txt"
+            ]
     elif dataset == "TINY_IMAGENET":
         urls = ["http://cs231n.stanford.edu/tiny-imagenet-200.zip"]
+    elif dataset == "STANFORD120":
+        urls = [
+            "http://vision.stanford.edu/aditya86/ImageNetDogs/images.tar",
+            "http://vision.stanford.edu/aditya86/ImageNetDogs/lists.tar"
+            ]
 
     for i, url in enumerate(urls):
         filename = pjoin(raw_dir, url.split('/')[-1])
@@ -143,7 +151,8 @@ def process_data(dataset, data_dir, raw_dir):
         test_folder = pjoin(data_dir, "test")
 
         def ignore_files(data_dir, files): return [
-            f for f in files if os.path.isfile(os.path.join(data_dir,f))]
+            f for f in files if os.path.isfile(os.path.join(data_dir,f))
+            ]
 
         shutil.copytree(images_path, test_folder, ignore=ignore_files)
         shutil.copytree(images_path, train_folder, ignore=ignore_files)
@@ -164,6 +173,45 @@ def process_data(dataset, data_dir, raw_dir):
         print(train_images, test_images)
         assert train_images == 5360
         assert test_images == 1340
+
+        print('Dataset succesfully splitted!')
+        shutil.rmtree(raw_dir)
+    elif dataset == "STANFORD120":
+        from scipy.io import loadmat
+        train_list = loadmat(pjoin(raw_dir, "train_list.mat"))["file_list"]
+        test_list = loadmat(pjoin(raw_dir, "test_list.mat"))["file_list"]
+        images_path = pjoin(raw_dir, "Images")
+
+        train_list = [elem[0][0] for elem in train_list]
+        test_list = [elem[0][0] for elem in test_list]
+        print(train_list)
+
+        train_folder = pjoin(data_dir, "train")
+        test_folder = pjoin(data_dir, "test")
+
+        def ignore_files(data_dir, files): return [
+            f for f in files if os.path.isfile(os.path.join(data_dir,f))
+            ]
+
+        shutil.copytree(images_path, test_folder, ignore=ignore_files)
+        shutil.copytree(images_path, train_folder, ignore=ignore_files)
+
+        train_images, test_images = 0, 0
+
+        for folder, _, image_files in os.walk(images_path):
+            last_folder = folder.split("/")[-1]
+            for image_file in image_files:
+                name = pjoin(last_folder, image_file)
+                if name in train_list:
+                    shutil.copyfile(pjoin(images_path, name), pjoin(train_folder, name))
+                    train_images += 1
+                elif name in test_list:
+                    shutil.copyfile(pjoin(images_path, name), pjoin(test_folder, name))
+                    test_images += 1
+
+        print(train_images, test_images)
+        assert train_images == 12000
+        assert test_images == 8580
 
         print('Dataset succesfully splitted!')
         shutil.rmtree(raw_dir)
